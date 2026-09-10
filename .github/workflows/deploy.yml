@@ -37,6 +37,8 @@ jobs:
 
       - name: Build Production Web App
         run: npm run build
+        env:
+          VITE_OWM_KEY: ${{ secrets.VITE_OWM_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

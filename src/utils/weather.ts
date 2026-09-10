@@ -1,6 +1,6 @@
 import { PlaceLocation, WeatherData, AirQualityData, WeatherAlert, RadarFrame } from '../types';
 
-export const OWM_KEY = "9de353e0a47d5ce99b620578bc7e88a4";
+export const OWM_KEY: string = (import.meta.env.VITE_OWM_KEY as string | undefined)?.trim() || "";
 export const OWM_BASE = "https://api.openweathermap.org";
 
 export function fmtTemp(c: number | null | undefined, unit: 'C' | 'F'): string {
@@ -234,6 +234,10 @@ export async function fetchWeatherDetails(lat: number, lon: number): Promise<{
   air: AirQualityData | null;
   tzOffsetSec: number;
 }> {
+  if (!OWM_KEY) {
+    throw new Error("Missing OpenWeatherMap API key. Please configure VITE_OWM_KEY in your .env file or repository secrets.");
+  }
+
   const curUrl = `${OWM_BASE}/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`;
   const fcUrl = `${OWM_BASE}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`;
   const airUrl = `${OWM_BASE}/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OWM_KEY}`;

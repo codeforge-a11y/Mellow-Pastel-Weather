@@ -1,0 +1,6 @@
+{
+  "name": "Mellow Weather",
+  "description": "A pastel weather dashboard with interactive radar map, hourly and 5-day forecasts, air quality metrics, and lifestyle insights.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

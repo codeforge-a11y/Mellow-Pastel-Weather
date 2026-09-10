@@ -15,7 +15,24 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   </head>
   <body class="bg-[#FFFBF6] text-[#4B4B5E] antialiased">
-    <div id="root"></div>
+    <noscript>
+      <div style="padding: 24px; text-align: center; font-family: 'Nunito', sans-serif; background: #FFF3CD; color: #856404; border-bottom: 1px solid #FFEBAA;">
+        <strong>JavaScript Required:</strong> Please enable JavaScript to run Mellow Weather.
+      </div>
+    </noscript>
+    <div id="root">
+      <!-- Accessible Initial Page Structure & Loading State -->
+      <main style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Quicksand', 'Nunito', system-ui, -apple-system, sans-serif; background-color: #FFFBF6; color: #4B4B5E; padding: 24px; text-align: center;">
+        <div style="width: 72px; height: 72px; border-radius: 24px; background: linear-gradient(135deg, #FCBB04, #FFFC00); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(252, 187, 4, 0.4); margin-bottom: 20px;" aria-hidden="true">
+          <span style="font-size: 36px; line-height: 1;">☀️</span>
+        </div>
+        <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 8px 0; color: #2D2D3A; letter-spacing: -0.02em;">Mellow Weather</h1>
+        <p style="font-size: 15px; color: #717182; max-width: 420px; margin: 0; line-height: 1.5;">A pastel weather dashboard with interactive radar map, hourly and 5-day forecasts, air quality metrics, and lifestyle insights.</p>
+        <div style="margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #9A7B38; background: #FFF5D6; border: 1px solid #EADB9E; padding: 6px 14px; border-radius: 9999px;">
+          <span>Loading current weather conditions...</span>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

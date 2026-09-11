@@ -229,13 +229,13 @@ export async function searchPlacesOpenMeteo(q: string): Promise<PlaceLocation[]>
   }));
 }
 
-export async function fetchWeatherDetails(lat: number, lon: number): Promise<{
+async function fetchOWMWeather(lat: number, lon: number): Promise<{
   weather: WeatherData;
   air: AirQualityData | null;
   tzOffsetSec: number;
 }> {
   if (!OWM_KEY) {
-    throw new Error("Missing OpenWeatherMap API key. Please configure VITE_OWM_KEY in your .env file or repository secrets.");
+    throw new Error("Missing OpenWeatherMap API key");
   }
 
   const curUrl = `${OWM_BASE}/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`;
@@ -420,6 +420,134 @@ export async function fetchWeatherDetails(lat: number, lon: number): Promise<{
     air: airData,
     tzOffsetSec
   };
+}
+
+async function fetchOpenMeteoWeather(lat: number, lon: number): Promise<{
+  weather: WeatherData;
+  air: AirQualityData | null;
+  tzOffsetSec: number;
+}> {
+  const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,pressure_msl,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,daylight_duration,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant&timezone=auto`;
+  const aUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`;
+
+  const [wRes, aRes] = await Promise.allSettled([
+    fetch(wUrl).then(r => {
+      if (!r.ok) throw new Error(`Weather fetch status ${r.status}`);
+      return r.json();
+    }),
+    fetch(aUrl).then(r => r.ok ? r.json() : null)
+  ]);
+
+  if (wRes.status !== 'fulfilled' || !wRes.value?.current) {
+    throw new Error("Weather service unavailable");
+  }
+
+  const w = wRes.value;
+  const a = aRes.status === 'fulfilled' ? aRes.value : null;
+
+  const tzOffsetSec = w.utc_offset_seconds || 0;
+  const cur = w.current;
+  const curCode = cur.weather_code ?? 0;
+
+  const current: WeatherData['current'] = {
+    time: cur.time,
+    temperature_2m: cur.temperature_2m ?? 0,
+    apparent_temperature: cur.apparent_temperature ?? cur.temperature_2m ?? 0,
+    relative_humidity_2m: cur.relative_humidity_2m ?? 50,
+    is_day: cur.is_day ?? 1,
+    precipitation: cur.precipitation ?? 0,
+    weather_code: curCode,
+    description: wmoLabel(curCode),
+    cloud_cover: cur.cloud_cover ?? 0,
+    pressure_msl: cur.pressure_msl ?? 1013,
+    surface_pressure: cur.surface_pressure ?? cur.pressure_msl ?? 1013,
+    wind_speed_10m: cur.wind_speed_10m ?? 0,
+    wind_direction_10m: cur.wind_direction_10m ?? 0,
+    wind_gusts_10m: cur.wind_gusts_10m ?? 0,
+    visibility: w.hourly?.visibility?.[0] ?? null,
+    uv_index: w.daily?.uv_index_max?.[0] ?? null
+  };
+
+  const hourly: WeatherData['hourly'] = {
+    time: w.hourly?.time || [],
+    temperature_2m: w.hourly?.temperature_2m || [],
+    relative_humidity_2m: w.hourly?.relative_humidity_2m || [],
+    dew_point_2m: w.hourly?.dew_point_2m || [],
+    apparent_temperature: w.hourly?.apparent_temperature || [],
+    precipitation_probability: w.hourly?.precipitation_probability || [],
+    precipitation: w.hourly?.precipitation || [],
+    weather_code: w.hourly?.weather_code || [],
+    description: (w.hourly?.weather_code || []).map((code: number) => wmoLabel(code)),
+    cloud_cover: w.hourly?.cloud_cover || [],
+    pressure_msl: w.hourly?.pressure_msl || [],
+    visibility: w.hourly?.visibility || [],
+    wind_speed_10m: w.hourly?.wind_speed_10m || [],
+    wind_direction_10m: w.hourly?.wind_direction_10m || [],
+    wind_gusts_10m: w.hourly?.wind_gusts_10m || [],
+    uv_index: w.hourly?.uv_index || [],
+    is_day: w.hourly?.is_day || []
+  };
+
+  const daily: WeatherData['daily'] = {
+    time: w.daily?.time || [],
+    weather_code: w.daily?.weather_code || [],
+    description: (w.daily?.weather_code || []).map((code: number) => wmoLabel(code)),
+    temperature_2m_max: w.daily?.temperature_2m_max || [],
+    temperature_2m_min: w.daily?.temperature_2m_min || [],
+    sunrise: w.daily?.sunrise || [],
+    sunset: w.daily?.sunset || [],
+    daylight_duration: w.daily?.daylight_duration || [],
+    uv_index_max: w.daily?.uv_index_max || [],
+    precipitation_probability_max: w.daily?.precipitation_probability_max || [],
+    precipitation_sum: w.daily?.precipitation_sum || [],
+    wind_speed_10m_max: w.daily?.wind_speed_10m_max || [],
+    wind_gusts_10m_max: w.daily?.wind_gusts_10m_max || [],
+    wind_direction_10m_dominant: w.daily?.wind_direction_10m_dominant || []
+  };
+
+  let airData: AirQualityData | null = null;
+  if (a?.current) {
+    const usAqi = a.current.us_aqi ?? a.current.european_aqi ?? 25;
+    let mappedAqi = 1;
+    if (usAqi > 200) mappedAqi = 5;
+    else if (usAqi > 150) mappedAqi = 4;
+    else if (usAqi > 100) mappedAqi = 3;
+    else if (usAqi > 50) mappedAqi = 2;
+
+    airData = {
+      aqi: mappedAqi,
+      components: {
+        co: a.current.carbon_monoxide,
+        no2: a.current.nitrogen_dioxide,
+        o3: a.current.ozone,
+        so2: a.current.sulphur_dioxide,
+        pm2_5: a.current.pm2_5,
+        pm10: a.current.pm10
+      }
+    };
+  }
+
+  return {
+    weather: { current, hourly, daily },
+    air: airData,
+    tzOffsetSec
+  };
+}
+
+export async function fetchWeatherDetails(lat: number, lon: number): Promise<{
+  weather: WeatherData;
+  air: AirQualityData | null;
+  tzOffsetSec: number;
+}> {
+  if (OWM_KEY) {
+    try {
+      return await fetchOWMWeather(lat, lon);
+    } catch (err) {
+      console.warn("OpenWeatherMap fetch failed, falling back to Open-Meteo:", err);
+      return await fetchOpenMeteoWeather(lat, lon);
+    }
+  }
+  return await fetchOpenMeteoWeather(lat, lon);
 }
 
 export async function fetchNWSAlerts(lat: number, lon: number): Promise<WeatherAlert[]> {

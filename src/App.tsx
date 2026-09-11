@@ -61,6 +61,7 @@ export default function App() {
   const [tzOffsetSec, setTzOffsetSec] = useState<number>(0);
   const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string; emoji: string }[]>([]);
@@ -83,6 +84,7 @@ export default function App() {
   // Load weather data for the current location
   const loadWeather = useCallback(async (loc: PlaceLocation) => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const { weather: wData, air: aData, tzOffsetSec: tz } = await fetchWeatherDetails(loc.lat, loc.lon);
       setWeather(wData);
@@ -98,6 +100,7 @@ export default function App() {
       localStorage.setItem('mellow_last', JSON.stringify(loc));
     } catch (err: any) {
       console.error("Failed to load weather:", err);
+      setLoadError(err?.message || "Weather service temporarily unavailable");
       showToast("Weather service temporarily unavailable", "🌧️");
     } finally {
       setIsLoading(false);
@@ -303,6 +306,23 @@ export default function App() {
               </div>
             </section>
           </>
+        ) : loadError && !isLoading ? (
+          /* Error State with Retry */
+          <div className="card p-10 mt-8 text-center flex flex-col items-center justify-center gap-4 max-w-md mx-auto">
+            <span className="text-4xl" role="img" aria-label="Cloud with rain">🌧️</span>
+            <div className="font-display font-bold text-xl text-ink">
+              Unable to load weather data
+            </div>
+            <div className="text-sm text-muted leading-relaxed">
+              {loadError}
+            </div>
+            <button
+              onClick={() => loadWeather(location)}
+              className="pill mt-2 bg-[#9B87F5] hover:bg-[#8B75E5] text-white font-bold px-6 py-2.5 transition active:scale-95 shadow-sm"
+            >
+              Try Again
+            </button>
+          </div>
         ) : (
           /* Loading Skeleton */
           <div className="card p-12 mt-8 text-center flex flex-col items-center justify-center gap-4">
